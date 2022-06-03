@@ -14,6 +14,9 @@ PolyRenderer::PolyRenderer(QWidget *parent) : QWidget(parent)
 
 void PolyRenderer::HandleKeyStates()
 {
+    Vec2 plrLastPos;
+    plrLastPos = { m_PlayerPos.x(), m_PlayerPos.y() };
+
     if (m_KeyStates[Qt::Key_W] || m_KeyStates[Qt::Key_S])
     {
         int dir = 1;
@@ -21,9 +24,14 @@ void PolyRenderer::HandleKeyStates()
             dir = -1;
 
         double x = m_PlayerPos.x() + (dir * MOV_SPEED) * cos(m_PlrAngle);
-        double y = m_PlayerPos.y() + (dir * MOV_SPEED) * sin(m_PlrAngle);
         m_PlayerPos.setX(x);
+        //if (DetectCollision())
+        //    m_PlayerPos.setX(plrLastPos.x);
+
+        double y = m_PlayerPos.y() + (dir * MOV_SPEED) * sin(m_PlrAngle);
         m_PlayerPos.setY(y);
+        //if (DetectCollision())
+        //    m_PlayerPos.setY(plrLastPos.y);
     }
 
     if (m_KeyStates[Qt::Key_Control])
@@ -38,7 +46,96 @@ void PolyRenderer::HandleKeyStates()
             dir = m_PlrAngle + M_PI / 2.0;
 
         double x = m_PlayerPos.x() + (MOV_SPEED * cos(dir));
+        m_PlayerPos.setX(x);
+        //if (DetectCollision())
+        //    m_PlayerPos.setX(plrLastPos.x);
+
         double y = m_PlayerPos.y() + (MOV_SPEED * sin(dir));
+        m_PlayerPos.setY(y);
+        //if (DetectCollision())
+        //    m_PlayerPos.setY(plrLastPos.y);
+    }
+
+    ResolveCollisions(plrLastPos);
+}
+
+bool PolyRenderer::DetectCollision()
+{
+    Vec2 playerPos;
+    playerPos.x = m_PlayerPos.x();
+    playerPos.y = m_PlayerPos.y();
+    double radius = 10;
+
+    for (int polyIdx = 0; polyIdx < m_Polygons.size(); polyIdx++)
+    {
+        std::vector<QPointF>& points = m_Polygons[polyIdx].polygon;
+        for (int i = 0; i < points.size() - 1; i++)
+        {
+            QPointF p1 = points[i];
+            QPointF p2 = points[i + 1];
+
+            LineSeg line;
+            line.p1.x = points[i].x();
+            line.p1.y = points[i].y();
+            line.p2.x = points[i + 1].x();
+            line.p2.y = points[i + 1].y();
+
+
+            if (Physics::LineCircleCollision(line, playerPos, radius) != 0)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+void PolyRenderer::ResolveCollisions(Vec2 plrLastPos)
+{
+    Vec2 playerPos;
+    playerPos.x = m_PlayerPos.x();
+    playerPos.y = m_PlayerPos.y();
+
+    bool collisionDetected = false;
+    int collisionXY = 0;
+    LineSeg collidedLine;
+    double radius = 10;
+
+    for (int polyIdx = 0; polyIdx < m_Polygons.size(); polyIdx++)
+    {
+        std::vector<QPointF>& points = m_Polygons[polyIdx].polygon;
+        for (int i = 0; i < points.size() - 1; i++)
+        {
+            QPointF p1 = points[i];
+            QPointF p2 = points[i + 1];
+
+            LineSeg line;
+            line.p1.x = points[i].x();
+            line.p1.y = points[i].y();
+            line.p2.x = points[i + 1].x();
+            line.p2.y = points[i + 1].y();
+
+            collisionXY = Physics::LineCircleCollision(line, playerPos, radius);
+
+            if (collisionXY != 0)
+            {
+                collidedLine = line;
+                collisionDetected = true;
+                break;
+            }
+        }
+    }
+
+    if (collisionDetected)
+    {
+        Vec2 dir = playerPos - plrLastPos;
+        Vec2 collisionPoint = VecMath::ClosestPointOnLine(collidedLine, playerPos);
+        Vec2 n = (collisionPoint - playerPos).Normalize();
+
+        dir = dir - n * (dir.Dot(n));
+
+        double x = plrLastPos.x + dir.x;
+        double y = plrLastPos.y + dir.y;
+
         m_PlayerPos.setX(x);
         m_PlayerPos.setY(y);
     }
@@ -81,49 +178,55 @@ void PolyRenderer::PolyDraw(QPointF playerPos, QPainter& painter)
         {
             QPointF p1 = points[i];
             QPointF p2 = points[i + 1];
+
+            if (VecMath::IsFrontFace({ playerPos.x(), playerPos.y() } , { p1.x(), p1.y() }, { p2.x(), p2.y() }) > 0)
+            {
+                continue;
+            }
+
             double ceilH = m_Polygons[polyIdx].ceil;
 
             double distX1 = p1.x() - playerPos.x();
             double distY1 = p1.y() - playerPos.y();
-            double pointScreen1 = distX1 * cos(m_PlrAngle) + distY1 * sin(m_PlrAngle); //tz1
+            double z1 = distX1 * cos(m_PlrAngle) + distY1 * sin(m_PlrAngle); //tz1
 
             double distX2 = p2.x() - playerPos.x();
             double distY2 = p2.y() - playerPos.y();
-            double pointScreen2 = distX2 * cos(m_PlrAngle) + distY2 * sin(m_PlrAngle); //tz2
+            double z2 = distX2 * cos(m_PlrAngle) + distY2 * sin(m_PlrAngle); //tz2
 
             distX1 = distX1 * sin(m_PlrAngle) - distY1 * cos(m_PlrAngle); //tx1
             distX2 = distX2 * sin(m_PlrAngle) - distY2 * cos(m_PlrAngle); //tx2
 
             //painter.drawLine(vtx1, vtz1, vtx2, vtz2);
 
-            if (pointScreen1 > 0 || pointScreen2 > 0)
+            if (z1 > 0 || z2 > 0)
             {
                 double cx1, cy1, cx2, cy2;
-                Intersection(distX1, pointScreen1, distX2, pointScreen2, -0.0001, 0.0001, -20, 5, cx1, cy1); //ix1, iz1
-                Intersection(distX1, pointScreen1, distX2, pointScreen2, 0.0001, 0.0001, 20, 5, cx2, cy2); //ix2, iz2
+                VecMath::Intersection(distX1, z1, distX2, z2, -0.0001, 0.0001, -20, 5, cx1, cy1); //ix1, iz1
+                VecMath::Intersection(distX1, z1, distX2, z2, 0.0001, 0.0001, 20, 5, cx2, cy2); //ix2, iz2
 
-                if (pointScreen1 <= 0)
+                if (z1 <= 0)
                     if (cy1 > 0)
                     {
                         distX1 = cx1;
-                        pointScreen1 = cy1;
+                        z1 = cy1;
                     }
                     else
                     {
                         distX1 = cx2;
-                        pointScreen1 = cy2;
+                        z1 = cy2;
                     }
 
-                if (pointScreen2 <= 0)
+                if (z2 <= 0)
                     if (cy1 > 0)
                     {
                         distX2 = cx1;
-                        pointScreen2 = cy1;
+                        z2 = cy1;
                     }
                     else
                     {
                         distX2 = cx2;
-                        pointScreen2 = cy2;
+                        z2 = cy2;
                     }
             }
             else
@@ -134,12 +237,12 @@ void PolyRenderer::PolyDraw(QPointF playerPos, QPainter& painter)
             double centerScreenH = this->height() / 2;
             double centerScreenW = this->width() / 2;
 
-            double x1 = -distX1 * widthRatio / pointScreen1;
-            double x2 = -distX2 * widthRatio / pointScreen2;
-            double y1a = (-ceilH + -heightRatio) / pointScreen1;
-            double y1b = heightRatio / pointScreen1;
-            double y2a = (-ceilH + -heightRatio) / pointScreen2;
-            double y2b = heightRatio / pointScreen2;
+            double x1 = -distX1 * widthRatio / z1;
+            double x2 = -distX2 * widthRatio / z2;
+            double y1a = (-ceilH + -heightRatio) / z1;
+            double y1b = heightRatio / z1;
+            double y2a = (-ceilH + -heightRatio) / z2;
+            double y2b = heightRatio / z2;
 
 
             pen.setColor(QColor(255, 0, 0, 255));
@@ -181,20 +284,25 @@ void PolyRenderer::SaveMap()
     std::ofstream file;
     file.open(filename.toStdString());
 
+    //polygons array
     for (int pi = 0; pi < m_Polygons.size(); pi++)
     {
-        file << "poly\n";
-
         std::vector<QPointF>& points = m_Polygons[pi].polygon;
         for (int vi = 0; vi < points.size(); vi++)
         {
             std::string x = QString::number(points[vi].x(), 'f', 2).toStdString();
             std::string y = QString::number(points[vi].y(), 'f', 2).toStdString();
 
-            file <<  x << '\n' << y << '\n';
+            file << "vars.polys[" << pi << "].vert[" << vi << "].x = " << x << ";\n";
+            file << "vars.polys[" << pi << "].vert[" << vi << "].y = " << y << ";\n";
         }
+
+        file << "vars.polys[" << pi << "].height = " << m_Polygons[pi].ceil << ";\n";
+        file << "vars.polys[" << pi << "].vertCnt = " << m_Polygons[pi].polygon.size() << ";\n";
     }
 
+
+    //player position
     std::string plrX = QString::number(m_PlayerPos.x(), 'f', 2).toStdString();
     std::string plrY = QString::number(m_PlayerPos.y(), 'f', 2).toStdString();
     std::string plrAngle = QString::number(m_PlrAngle, 'f', 2).toStdString();
@@ -204,20 +312,6 @@ void PolyRenderer::SaveMap()
     file << plrAngle << '\n';
 
     file.close();
-}
-
-double PolyRenderer::Cross2d(double x1, double y1, double x2, double y2)
-{
-    return x1 * y2 - y1 * x2;
-}
-
-void PolyRenderer::Intersection(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double& x, double& y)
-{
-    x = Cross2d(x1, y1, x2, y2);
-    y = Cross2d(x3, y3, x4, y4);
-    double det = Cross2d(x1 - x2, y1 - y2, x3 - x4, y3 - y4);
-    x = Cross2d(x, x1 - x2, y, x3 - x4) / det;
-    y = Cross2d(x, y1 - y2, y, y3 - y4) / det;
 }
 
 void PolyRenderer::RayCast(QPointF playerPos)
@@ -563,6 +657,8 @@ void PolyRenderer::DrawPolygons(QPainter& painter)
             QPointF point1 = m_Polygons[i].polygon[pidx];
             QPointF point2 = m_Polygons[i].polygon[pidx + 1];
 
+            pen.setColor(QColor(0, 0, 0, 255));
+
             pen.setWidth(PEN_SIZE_POINT);
             painter.setPen(pen);
             painter.drawPoint(point1.x(), point1.y());
@@ -571,7 +667,21 @@ void PolyRenderer::DrawPolygons(QPainter& painter)
             pen.setWidth(PEN_SIZE_LINE);
             painter.setPen(pen);
             painter.drawLine(point1, point2);
+
+            pen.setWidth(2);
+            pen.setColor(QColor(255, 0, 0, 255));
+            painter.setPen(pen);
+
+            LineSeg normal = VecMath::NormalLine({ point1.x(), point1.y() }, { point2.x(), point2.y() }, 40);
+            painter.drawLine(normal.p1.x, normal.p1.y, normal.p2.x, normal.p2.y);
         }
+    }
+
+    if (m_CollisionVector.p1.x != 0 && m_CollisionVector.p1.y != 0)
+    {
+        pen.setColor(QColor(0, 255, 0, 255));
+        painter.setPen(pen);
+        painter.drawLine(m_CollisionVector.p1.x, m_CollisionVector.p1.y, m_CollisionVector.p2.x, m_CollisionVector.p2.y);
     }
 }
 

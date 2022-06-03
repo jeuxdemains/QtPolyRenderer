@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <math.h>
 #include <fstream>
+#include "VecMath.h"
+#include "PhysicsEngine.h"
 
 typedef struct _PolysList
 {
@@ -72,6 +74,7 @@ private:
     const double MOV_SPEED = 1;
     const double ROT_SPEED = 50;
     const double CEIL_HEIGHT[4] = { 1000, 10000, 50000, 100000 };
+    LineSeg m_CollisionVector = {};
 
     double m_CamPlaneDist = 64 / 2;
     double m_ScrnHalfLen = m_CamPlaneDist * tan(FOV / 2.0);
@@ -91,6 +94,7 @@ private:
     double m_PlrAngle = 45.0 / (3.14 * 180);
     bool fpsMode = false;
 
+    //rendering
     void ModeDraw(QMouseEvent* event);
     void DrawPolygons(QPainter& painter);
     void DrawTempVertices(QPainter& painter);
@@ -101,6 +105,8 @@ private:
     void AddPolygon(Poly p);
     void FinalizePolygon();
     void RayCast(QPointF playerPos);
+    void PolyDraw(QPointF playerPos, QPainter& painter);
+
     int get_line_intersection(float p0_x, float p0_y, float p1_x, float p1_y,
         float p2_x, float p2_y, float p3_x, float p3_y, float* i_x, float* i_y);
     float CalcIntersectionDist
@@ -109,11 +115,13 @@ private:
         float rayAngle, float angle
     );
 
+    //physics
+    bool DetectCollision();
+    void ResolveCollisions(Vec2 plrLastPos);
+
+    //general
     void UpdateFrame();
     void HandleKeyStates();
-    void PolyDraw(QPointF playerPos, QPainter& painter);
-    double Cross2d(double x1, double y1, double x2, double y2);
-    void Intersection(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double& x, double& y);
     void SaveMap();
 
 protected:

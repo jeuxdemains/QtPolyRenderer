@@ -105,6 +105,8 @@
     <QtMoc Include="PolyRenderer.h" />
     <ClCompile Include="PolyRenderer.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClInclude Include="PhysicsEngine.h" />
+    <ClInclude Include="VecMath.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClCompile Include="PolyRendererEventsHandler.cpp" />

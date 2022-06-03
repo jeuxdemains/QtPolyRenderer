@@ -26,10 +26,15 @@ void PolyRenderer::mousePressEvent(QMouseEvent* event)
 
 void PolyRenderer::mouseMoveEvent(QMouseEvent* event)
 {
+    Vec2 plrLastPos;
+    plrLastPos = { m_PlayerPos.x(), m_PlayerPos.y() };
+
     if (m_Mode == REND_MODE::RENDER)
     {
         if (!fpsMode)
+        {
             m_PlayerPos = event->localPos();
+        }
         else
         {
             m_MouseLastX -= event->localPos().x();
@@ -51,6 +56,7 @@ void PolyRenderer::mouseMoveEvent(QMouseEvent* event)
         m_CurMouseLocalPos = event->localPos();
     }
 
+    ResolveCollisions(plrLastPos);
 }
 
 void PolyRenderer::keyPressEvent(QKeyEvent* event)
