@@ -25,4 +25,20 @@ struct Physics
 
 		return 0;
 	}
+
+	static Vec2 ResolveCollision(Vec2 lastPosition, Vec2 currentPosition, LineSeg lineOfCollision)
+	{
+		Vec2 dir = currentPosition - lastPosition;
+		Vec2 collisionPoint = VecMath::ClosestPointOnLine(lineOfCollision, currentPosition);
+		Vec2 n = (collisionPoint - currentPosition).Normalize();
+
+		dir = dir - n * (dir.Dot(n));
+
+		double x = lastPosition.x + dir.x;
+		double y = lastPosition.y + dir.y;
+
+		Vec2 resolvedPos = { x, y };
+
+		return resolvedPos;
+	}
 };

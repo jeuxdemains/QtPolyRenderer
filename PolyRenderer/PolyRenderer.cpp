@@ -127,17 +127,9 @@ void PolyRenderer::ResolveCollisions(Vec2 plrLastPos)
 
     if (collisionDetected)
     {
-        Vec2 dir = playerPos - plrLastPos;
-        Vec2 collisionPoint = VecMath::ClosestPointOnLine(collidedLine, playerPos);
-        Vec2 n = (collisionPoint - playerPos).Normalize();
-
-        dir = dir - n * (dir.Dot(n));
-
-        double x = plrLastPos.x + dir.x;
-        double y = plrLastPos.y + dir.y;
-
-        m_PlayerPos.setX(x);
-        m_PlayerPos.setY(y);
+        Vec2 resolvedXY = Physics::ResolveCollision(plrLastPos, playerPos, collidedLine);
+        m_PlayerPos.setX(resolvedXY.x);
+        m_PlayerPos.setY(resolvedXY.y);
     }
 }
 
@@ -257,6 +249,27 @@ void PolyRenderer::PolyDraw(QPointF playerPos, QPainter& painter)
             painter.drawLine(centerScreenW + x1, centerScreenH + y1a, centerScreenW + x1, centerScreenH + y1b); //left
             painter.drawLine(centerScreenW + x2, centerScreenH + y2a, centerScreenW + x2, centerScreenH + y2b); //right
 
+            QPolygon poly;
+            poly << QPoint(centerScreenW + x1, centerScreenH + y1a);
+            poly << QPoint(centerScreenW + x2, centerScreenH + y2a);
+            poly << QPoint(centerScreenW + x1, centerScreenH + y1b);
+            poly << QPoint(centerScreenW + x2, centerScreenH + y2b);
+            poly << QPoint(centerScreenW + x1, centerScreenH + y1a);
+            poly << QPoint(centerScreenW + x1, centerScreenH + y1b);
+            poly << QPoint(centerScreenW + x2, centerScreenH + y2a);
+            poly << QPoint(centerScreenW + x2, centerScreenH + y2b);
+
+            Color c = CalcWallSliceColor(z2);
+
+            QBrush brush;
+            brush.setColor(QColor(c.red, c.green, c.blue, 255));
+            brush.setStyle(Qt::BrushStyle::SolidPattern);
+
+            QPainterPath path;
+            path.addPolygon(poly);
+
+            painter.fillPath(path, brush);
+
             //for (int x = x1; x < x2; x++)
             //{
             //    double ya = y1a + (x - x1) * int(y2a - y1a) / (x2 - x1);
@@ -272,6 +285,11 @@ void PolyRenderer::PolyDraw(QPointF playerPos, QPainter& painter)
             //}
         }
     }
+}
+
+void PolyRenderer::SortPolysDepth()
+{
+
 }
 
 void PolyRenderer::SaveMap()

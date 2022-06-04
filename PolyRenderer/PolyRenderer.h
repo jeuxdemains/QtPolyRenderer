@@ -120,6 +120,7 @@ private:
     void ResolveCollisions(Vec2 plrLastPos);
 
     //general
+    void SortPolysDepth();
     void UpdateFrame();
     void HandleKeyStates();
     void SaveMap();
